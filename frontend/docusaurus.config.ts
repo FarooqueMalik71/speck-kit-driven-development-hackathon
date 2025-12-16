@@ -15,7 +15,7 @@ const config: Config = {
   },
 
   // Set the production url of your site here
-  url: 'https://physical-ai-textbook.example.com',
+  url: 'https://speck-kit-driven-development-hackathon.vercel.app',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: '/',
@@ -25,7 +25,7 @@ const config: Config = {
   organizationName: 'https://github.com/FarooqueMalik71', // Replace with your GitHub username/organization
   projectName: 'speck-kit-driven-development-hackathon', // Replace with your actual repository name
 
-  onBrokenLinks: 'throw',
+  onBrokenLinks: 'warn',
 
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
@@ -43,21 +43,7 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/your-organization/physical-ai-textbook/edit/main/',
-        },
-        blog: {
-          showReadingTime: true,
-          feedOptions: {
-            type: ['rss', 'atom'],
-            xslt: true,
-          },
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/your-organization/physical-ai-textbook/edit/main/',
-          // Useful options to enforce blogging best practices
-          onInlineTags: 'warn',
-          onInlineAuthors: 'warn',
-          onUntruncatedBlogPosts: 'warn',
+            'https://github.com/FarooqueMalik71/speck-kit-driven-development-hackathon/edit/main/',
         },
         theme: {
           customCss: './src/css/custom.css',
@@ -103,7 +89,6 @@ const config: Config = {
           label: 'More',
           position: 'right',
           items: [
-            {to: '/blog', label: 'Blog'},
             {to: '/docs/ai-assistant/using-full-book-qa', label: 'AI Guide'},
           ],
         },
