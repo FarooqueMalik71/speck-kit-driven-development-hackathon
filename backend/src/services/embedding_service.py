@@ -1,7 +1,7 @@
 from typing import List, Optional
 import logging
 from openai import OpenAI
-from .config import settings
+from ..config import settings
 from .content_processor import ContentChunk
 
 logger = logging.getLogger(__name__)

@@ -24,8 +24,8 @@ def start_server():
         import uvicorn
         from src.main import app
 
-        print("✅ Server imported successfully!")
-        print("✅ Services available:", os.environ.get('SERVICES_AVAILABLE', 'Not checked yet'))
+        print("[SUCCESS] Server imported successfully!")
+        print("[SUCCESS] Services available:", os.environ.get('SERVICES_AVAILABLE', 'Not checked yet'))
 
         print("\nStarting server on http://0.0.0.0:8000")
         print("Press Ctrl+C to stop the server")
@@ -40,10 +40,10 @@ def start_server():
         )
 
     except ImportError as e:
-        print(f"❌ Import error: {e}")
+        print(f"[ERROR] Import error: {e}")
         return False
     except Exception as e:
-        print(f"❌ Error starting server: {e}")
+        print(f"[ERROR] Error starting server: {e}")
         import traceback
         traceback.print_exc()
         return False

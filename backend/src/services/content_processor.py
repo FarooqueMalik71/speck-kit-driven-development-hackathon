@@ -4,8 +4,42 @@ import logging
 from datetime import datetime
 import hashlib
 from dataclasses import dataclass
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.docstore.document import Document
+try:
+    from langchain.text_splitter import RecursiveCharacterTextSplitter
+    from langchain.docstore.document import Document
+except ImportError:
+    try:
+        # For newer versions of LangChain
+        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        from langchain_core.documents import Document
+    except ImportError:
+        # As a last resort, create minimal fallback classes
+        class RecursiveCharacterTextSplitter:
+            def __init__(self, chunk_size=1000, chunk_overlap=200, **kwargs):
+                self.chunk_size = chunk_size
+                self.chunk_overlap = chunk_overlap
+
+            def split_documents(self, docs):
+                # Simple fallback implementation
+                result = []
+                for doc in docs:
+                    content = doc.page_content
+                    # Split content into chunks
+                    start = 0
+                    while start < len(content):
+                        end = start + self.chunk_size
+                        chunk_content = content[start:end]
+                        result.append(type('Document', (), {
+                            'page_content': chunk_content,
+                            'metadata': doc.metadata
+                        })())
+                        start = end - self.chunk_overlap
+                return result
+
+        class Document:
+            def __init__(self, page_content="", metadata=None):
+                self.page_content = page_content
+                self.metadata = metadata or {}
 import re
 
 logger = logging.getLogger(__name__)
