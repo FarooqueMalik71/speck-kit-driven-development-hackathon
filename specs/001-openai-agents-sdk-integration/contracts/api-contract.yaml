@@ -1,0 +1,213 @@
+# API Contract: OpenAI Agents SDK Integration for RAG System
+
+## Overview
+This document defines the API contracts for the OpenAI Agents SDK integration with the RAG system.
+
+## Base Path
+`http://localhost:8000` (or configured host/port)
+
+## Authentication
+No authentication required for local development. In production, API keys may be required based on deployment configuration.
+
+## Endpoints
+
+### Query Endpoint
+`POST /query`
+
+#### Description
+Query the textbook with AI-powered responses using the OpenAI agent with RAG integration.
+
+#### Request
+**Content-Type**: `application/json`
+
+**Body**:
+```json
+{
+  "query": "string",
+  "context_ids": ["string"],
+  "mode": "string"
+}
+```
+
+**Fields**:
+- `query`: The question or prompt to ask the AI (required)
+- `context_ids`: Optional array of content IDs for selected-text mode (optional, default: [])
+- `mode`: Query mode - "full_book" for full document search or "selected_text" for specific content search (optional, default: "full_book")
+
+**Example Request**:
+```json
+{
+  "query": "What is embodied intelligence?",
+  "mode": "full_book"
+}
+```
+
+```json
+{
+  "query": "Explain the key concepts",
+  "context_ids": ["chunk_id_1", "chunk_id_2"],
+  "mode": "selected_text"
+}
+```
+
+#### Response
+**Success Response**: `200 OK`
+
+**Content-Type**: `application/json`
+
+**Body**:
+```json
+{
+  "answer": "string",
+  "citations": ["string"],
+  "confidence": 0.0,
+  "is_confident": true,
+  "sources": ["string"],
+  "boundary_compliance": 0.0,
+  "needs_fact_check": true
+}
+```
+
+**Fields**:
+- `answer`: The AI-generated response to the query
+- `citations`: List of citations for the information provided
+- `confidence`: Confidence score between 0.0 and 1.0
+- `is_confident`: Boolean indicating if confidence is above threshold
+- `sources`: List of source documents used in the response
+- `boundary_compliance`: Score indicating adherence to content boundaries (0.0-1.0)
+- `needs_fact_check`: Boolean indicating if response needs verification
+
+**Example Response**:
+```json
+{
+  "answer": "Embodied intelligence refers to AI systems that interact with the physical world through sensors and actuators...",
+  "citations": ["Chapter 3: Physical AI Fundamentals", "Section 2.1: Embodied Cognition"],
+  "confidence": 0.85,
+  "is_confident": true,
+  "sources": ["/path/to/chapter3.md", "/path/to/chapter2.md"],
+  "boundary_compliance": 0.92,
+  "needs_fact_check": false
+}
+```
+
+#### Error Responses
+- `400 Bad Request`: Invalid request parameters
+- `500 Internal Server Error`: Error processing the query
+
+### Health Check Endpoint
+`GET /health`
+
+#### Description
+Check the health status of the API service.
+
+#### Response
+**Success Response**: `200 OK`
+
+**Content-Type**: `application/json`
+
+**Body**:
+```json
+{
+  "status": "string",
+  "service": "string",
+  "environment": "string",
+  "log_level": "string"
+}
+```
+
+**Example Response**:
+```json
+{
+  "status": "healthy",
+  "service": "textbook-api",
+  "environment": "development",
+  "log_level": "INFO"
+}
+```
+
+### Root Endpoint
+`GET /`
+
+#### Description
+Root endpoint for basic service information.
+
+#### Response
+**Success Response**: `200 OK`
+
+**Content-Type**: `application/json`
+
+**Body**:
+```json
+{
+  "message": "string"
+}
+```
+
+**Example Response**:
+```json
+{
+  "message": "Welcome to the AI-Native Textbook Platform API"
+}
+```
+
+## Data Models
+
+### QueryRequest
+**Description**: Request model for the query endpoint
+
+**Properties**:
+- query: string (required) - The question or prompt
+- context_ids: array of strings (optional) - IDs for selected-text mode
+- mode: string (optional, default: "full_book") - Query mode ("full_book" or "selected_text")
+
+### QueryResponse
+**Description**: Response model for the query endpoint
+
+**Properties**:
+- answer: string - The AI-generated response
+- citations: array of strings - Citations for the information
+- confidence: number - Confidence score (0.0-1.0)
+- is_confident: boolean - Whether confidence is above threshold
+- sources: array of strings - Source documents used
+- boundary_compliance: number - Content boundary adherence score (0.0-1.0)
+- needs_fact_check: boolean - Whether response needs verification
+
+## Error Handling
+
+### Common Error Responses
+
+#### 400 Bad Request
+```json
+{
+  "detail": "string"
+}
+```
+
+#### 500 Internal Server Error
+```json
+{
+  "detail": "string"
+}
+```
+
+## Provider Configuration
+
+The system supports multiple LLM providers configured via environment variables:
+
+### OpenAI Provider
+- Set `LLM_PROVIDER=openai`
+- Set `OPENAI_API_KEY` to your OpenAI API key
+- Optionally set `MODEL_NAME` (default: "gpt-4o")
+
+### OpenRouter Provider
+- Set `LLM_PROVIDER=openrouter`
+- Set `OPENROUTER_API_KEY` to your OpenRouter API key
+- Optionally set `MODEL_NAME` (default: "openai/gpt-4o")
+
+## Content Boundary Enforcement
+
+The system enforces content boundaries by:
+1. Only responding based on retrieved document chunks
+2. Calculating boundary compliance scores
+3. Indicating when responses may need fact-checking
+4. Supporting selected-text-only mode when context_ids are provided

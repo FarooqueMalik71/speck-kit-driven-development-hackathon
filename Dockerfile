@@ -22,9 +22,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/src/ ./src/
 COPY backend/tests/ ./tests/
 
-# Copy environment configuration
-COPY .env .
-
 # Expose port
 EXPOSE 8000
 

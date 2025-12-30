@@ -28,7 +28,16 @@ class RetrievalService:
         semantic_search: SemanticSearchService = None,
         embedding_service: EmbeddingService = None
     ):
-        self.vector_store = vector_store or VectorStoreService()
+        # Initialize vector store with error handling
+        if vector_store is None:
+            try:
+                self.vector_store = VectorStoreService()
+            except Exception as e:
+                logger.warning(f"Failed to initialize VectorStoreService: {str(e)}. Using mock mode.")
+                self.vector_store = VectorStoreService(use_mock=True)
+        else:
+            self.vector_store = vector_store
+
         self.semantic_search = semantic_search or SemanticSearchService(
             vector_store=self.vector_store,
             embedding_service=embedding_service
@@ -656,6 +665,82 @@ class RetrievalService:
 
         return "; ".join(explanations)
 
+    def format_as_textbook_content(self, query: str, results: List[RetrievalResult]) -> str:
+        """
+        Format retrieved results in textbook style with proper structure
+        """
+        if not results:
+            return "The requested information is not available in the current knowledge base."
+
+        # Create a structured response with headings, definitions, and examples
+        formatted_content = f"# Response to: {query}\n\n"
+
+        # Add introduction
+        formatted_content += "Based on the available textbook content, here is the information related to your query:\n\n"
+
+        # Add each result with proper formatting
+        for i, result in enumerate(results, 1):
+            # Add section heading
+            section_title = result.metadata.get('section_title', f'Source {i}')
+            formatted_content += f"## {section_title}\n\n"
+
+            # Add the content with proper formatting
+            content = result.content
+
+            # Extract and format definitions if present
+            definitions = self._extract_definitions(content)
+            if definitions:
+                formatted_content += "**Key Definitions:**\n"
+                for term, definition in definitions.items():
+                    formatted_content += f"- **{term}**: {definition}\n"
+                formatted_content += "\n"
+
+            # Add the main content
+            formatted_content += f"{content}\n\n"
+
+            # Add source information
+            formatted_content += f"*Source: {result.source_file}*\n\n"
+
+        # Add references section
+        formatted_content += "## References\n"
+        for i, result in enumerate(results, 1):
+            formatted_content += f"{i}. {result.source_file}\n"
+
+        return formatted_content
+
+    def _extract_definitions(self, content: str) -> Dict[str, str]:
+        """
+        Extract definitions from content using pattern matching
+        """
+        import re
+
+        definitions = {}
+
+        # Look for definition patterns like "X is defined as Y" or "X: Y"
+        # Pattern 1: "X is defined as Y" or "X refers to Y"
+        pattern1 = r'([A-Z][a-zA-Z\s\-\(\)]+?)\s+(?:is defined as|refers to|means|are)\s+(.*?)(?:\.|\n|$)'
+        matches1 = re.findall(pattern1, content, re.IGNORECASE)
+
+        for term, definition in matches1:
+            term = term.strip()
+            definition = definition.strip()
+            if len(definition) > 10:  # Avoid very short definitions
+                definitions[term] = definition
+
+        # Pattern 2: "Term: Definition" format
+        pattern2 = r'^\s*([A-Z][a-zA-Z\s\-\(\)]+?)\s*:\s*(.+)$'
+        lines = content.split('\n')
+        for line in lines:
+            match = re.match(pattern2, line.strip())
+            if match:
+                term, definition = match.groups()
+                term = term.strip()
+                definition = definition.strip()
+                if len(definition) > 10:
+                    definitions[term] = definition
+
+        return definitions
+
 # Example usage
 if __name__ == "__main__":
     # Initialize service
@@ -682,3 +767,9 @@ if __name__ == "__main__":
     print(f"  Avg relevance score: {stats['avg_relevance_score']:.3f}")
     print(f"  Relevant results: {stats['relevant_results']}")
     print(f"  Highly relevant results: {stats['highly_relevant_results']}")
+
+    # Test textbook formatting
+    if results:
+        textbook_content = retrieval_service.format_as_textbook_content(query, results)
+        print("\nTextbook-formatted content:")
+        print(textbook_content[:500] + "..." if len(textbook_content) > 500 else textbook_content)

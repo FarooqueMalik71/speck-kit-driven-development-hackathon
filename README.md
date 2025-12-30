@@ -51,7 +51,26 @@ This is an AI-native textbook platform that combines traditional textbook conten
    pip install -r requirements.txt
    ```
 
-4. Set up environment variables (copy `.env.example` to `.env` and fill in values)
+4. Set up environment variables:
+   - Copy `.env.example` to `.env` and fill in your API keys
+   - Required variables:
+     - `COHERE_API_KEY`: Your Cohere API key for embeddings
+     - `QDRANT_API_KEY`: Your Qdrant cloud API key
+     - `QDRANT_HOST`: Your Qdrant cloud host URL
+     - `QDRANT_PORT`: Your Qdrant port (typically 6333)
+     - `BOOK_URL`: URL of the website to ingest for RAG (optional for chat functionality)
+
+5. Start the backend server:
+   ```bash
+   python start_server.py
+   ```
+   The server will be available at http://localhost:8000
+
+6. (Optional) Ingest website content for RAG:
+   - Use the `/ingest` endpoint or run the ingestion CLI:
+   ```bash
+   python -m src.main --url "https://example.com" --max-pages 10
+   ```
 
 ### Frontend (Textbook) Setup
 
@@ -69,6 +88,10 @@ This is an AI-native textbook platform that combines traditional textbook conten
    ```bash
    npm start
    ```
+
+4. Access the AI chat interface at:
+   - Main site: http://localhost:3000
+   - AI Chat: http://localhost:3000/ai-chat
 
 ## Features
 

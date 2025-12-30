@@ -1,0 +1,196 @@
+# API Contract: Textbook RAG Chatbot
+
+## Overview
+This document defines the API contract for the Professional Textbook-Style RAG Chatbot, which provides academic and technical knowledge delivery with structured responses, conversation history, and mandatory references.
+
+## Base URL
+`/api/v1/chatbot`
+
+## Authentication
+Bearer token authentication required for all endpoints
+- Header: `Authorization: Bearer {token}`
+
+## Endpoints
+
+### POST /query
+Submit a query to the textbook RAG chatbot and receive a structured academic response.
+
+#### Request
+```json
+{
+  "sessionId": "string (optional, creates new session if not provided)",
+  "query": "string (required, the user's question or request)",
+  "contextIds": "string[] (optional, specific context IDs for selected text mode)",
+  "mode": "string (optional, default: 'full_book', values: 'full_book', 'selected_text')"
+}
+```
+
+#### Response (Success 200)
+```json
+{
+  "responseId": "string (unique identifier for this response)",
+  "sessionId": "string (session identifier)",
+  "answer": "string (the structured textbook-style answer)",
+  "citations": "string[] (list of citations used)",
+  "confidence": "number (0-1, confidence score)",
+  "is_confident": "boolean (whether response is confident)",
+  "sources": "string[] (list of source documents)",
+  "boundary_compliance": "number (0-1, compliance score)",
+  "needs_fact_check": "boolean (whether fact-checking is needed)",
+  "references": [
+    {
+      "type": "string ('internal' | 'external')",
+      "title": "string (title of reference)",
+      "url": "string (URL to reference)",
+      "description": "string (brief description)",
+      "relevance": "number (0-1, relevance score)"
+    }
+  ],
+  "structuredContent": {
+    "headings": "string[] (headings in response)",
+    "bulletPoints": "string[] (bullet points in response)",
+    "definitions": [
+      {
+        "term": "string (term being defined)",
+        "definition": "string (definition text)",
+        "context": "string (optional, context)"
+      }
+    ],
+    "examples": [
+      {
+        "title": "string (title of example)",
+        "description": "string (description)",
+        "code": "string (optional, code example)"
+      }
+    ],
+    "stepByStep": [
+      {
+        "title": "string (title of process)",
+        "steps": [
+          {
+            "stepNumber": "number (sequence number)",
+            "description": "string (step description)",
+            "example": "string (optional, example for step)"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+#### Response (Error 400)
+```json
+{
+  "error": "string (error message)",
+  "code": "string (error code)"
+}
+```
+
+### GET /session/{sessionId}
+Retrieve conversation history for a specific session.
+
+#### Path Parameters
+- `sessionId`: string (required, the session ID to retrieve)
+
+#### Response (Success 200)
+```json
+{
+  "sessionId": "string",
+  "createdAt": "string (ISO date)",
+  "lastAccessed": "string (ISO date)",
+  "expiresAt": "string (ISO date)",
+  "history": [
+    {
+      "turnId": "string (unique identifier for turn)",
+      "timestamp": "string (ISO date)",
+      "role": "string ('user' | 'assistant')",
+      "content": "string (message content)",
+      "references": [
+        {
+          "type": "string ('internal' | 'external')",
+          "title": "string (title of reference)",
+          "url": "string (URL to reference)",
+          "description": "string (brief description)"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### POST /session/{sessionId}/clear
+Clear the conversation history for a specific session while keeping the session active.
+
+#### Path Parameters
+- `sessionId`: string (required, the session ID to clear)
+
+#### Response (Success 200)
+```json
+{
+  "sessionId": "string",
+  "message": "string (confirmation message)"
+}
+```
+
+### GET /capabilities
+Retrieve the capabilities and configuration of the textbook RAG chatbot.
+
+#### Response (Success 200)
+```json
+{
+  "capabilities": {
+    "structuredResponses": true,
+    "conversationHistory": true,
+    "referenceAttachment": true,
+    "politeLanguageHandling": true,
+    "academicTone": true,
+    "contextAwareness": true
+  },
+  "configuration": {
+    "maxHistoryLength": "number (maximum number of conversation turns)",
+    "maxResponseLength": "number (maximum response length in characters)",
+    "referenceSources": "string[] (list of reference source types)",
+    "supportedModes": "string[] (list of supported query modes)"
+  }
+}
+```
+
+## Error Responses
+
+### 400 Bad Request
+- Invalid request format
+- Missing required fields
+- Invalid field values
+
+### 401 Unauthorized
+- Missing or invalid authentication token
+
+### 404 Not Found
+- Session ID does not exist
+
+### 429 Too Many Requests
+- Rate limit exceeded
+
+### 500 Internal Server Error
+- Server error processing request
+
+## Headers
+- `Content-Type`: application/json
+- `Accept`: application/json
+- `Authorization`: Bearer {token} (for authenticated endpoints)
+
+## Rate Limits
+- 100 requests per hour per user
+- 1000 requests per hour per IP
+
+## Schema Definitions
+
+### AcademicQuery
+Represents a user's question or request for academic information.
+
+### TextbookResponse
+Structured response containing headings, bullet points, definitions, examples, citations, and reference links.
+
+### ConversationContext
+Maintains state of ongoing dialogue between user and system to provide continuity.

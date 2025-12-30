@@ -7,8 +7,7 @@ services:
       - "8000:8000"
     environment:
       - ENVIRONMENT=development
-    env_file:
-      - .env
+      # Add environment variables here or use secrets management
     volumes:
       - ./backend/src:/app/src
     depends_on:

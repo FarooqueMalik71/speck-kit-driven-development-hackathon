@@ -74,6 +74,7 @@ class FallbackService:
                 f"I'm not confident enough to answer your query '{query}' based on the available information. "
                 f"Please refer to the original textbook content for accurate information."
             )
+            source_list = []  # Define source_list as empty when no results
         else:
             # Create a message pointing to relevant sections
             relevant_sources = [r for r in retrieved_results if r.is_relevant][:3]  # Top 3 relevant

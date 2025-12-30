@@ -21,8 +21,8 @@ if __name__ == "__main__":
     # Import the app
     from src.main import app
 
-    print("✅ FastAPI app loaded successfully")
-    print("✅ Services available:", "src.main" in sys.modules)
+    print("[SUCCESS] FastAPI app loaded successfully")
+    print("[SUCCESS] Services available:", "src.main" in sys.modules)
 
     # Check if we can access the basic endpoints
     import asyncio
@@ -40,6 +40,8 @@ if __name__ == "__main__":
     print(f"Health endpoint status: {response.status_code}")
     if response.status_code == 200:
         print(f"Health response: {response.json()}")
+    else:
+        print(f"Health endpoint error: {response.text}")
 
     print("\nAll endpoints are working correctly!")
     print("Server is ready to start on http://localhost:8000")
