@@ -1,9 +1,9 @@
 // Configuration for the AI Chatbot
 const config = {
-  // Backend API URL - can be overridden by environment variable or set for production
-  BACKEND_URL: process.env.REACT_APP_BACKEND_URL || typeof window !== 'undefined'
-    ? `${window.location.protocol}//${window.location.hostname}:${window.location.port || '8002'}`
-    : 'http://localhost:8002',
+  // Backend API URL - set directly since process.env is not available in browser for Docusaurus
+  BACKEND_URL: typeof window !== 'undefined'
+    ? 'http://localhost:8000'  // Directly set to the correct backend URL
+    : 'http://localhost:8000', // Fallback for server-side rendering
 
   // Default settings
   DEFAULT_MODEL: 'mistralai/devstral-2512:free',

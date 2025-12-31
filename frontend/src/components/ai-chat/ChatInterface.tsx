@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Message } from './Message';
 import { ConversationHistory } from './ConversationHistory';
 import { ReferenceSection } from '../textbook/ReferenceSection';
+import config from '../../config';
 
 interface Message {
   id: string;
@@ -103,8 +104,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionId: propSes
   // Call the actual backend API
   const callBackendApi = async (query: string, currentSessionId?: string) => {
     try {
-      // Use environment variable for backend URL, default to localhost for development
-      const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8002';
+      // Use config for backend URL since process.env is not available in browser for Docusaurus
+      const BACKEND_URL = config.BACKEND_URL;
       const response = await fetch(`${BACKEND_URL}/query`, {
         method: 'POST',
         headers: {
@@ -124,7 +125,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ sessionId: propSes
       return await response.json();
     } catch (error) {
       // Handle network errors or other exceptions
-      const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8002';
+      const BACKEND_URL = config.BACKEND_URL;
       if (error instanceof TypeError) {
         throw new Error(`Network error: Unable to connect to the server. Please check if the backend is running at ${BACKEND_URL}`);
       }

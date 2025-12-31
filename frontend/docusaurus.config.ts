@@ -55,6 +55,10 @@ const config: Config = {
   themeConfig: {
     // Replace with your project's social card
     image: 'img/docusaurus-social-card.jpg',
+    // Pass environment variables to client
+    customFields: {
+      BACKEND_URL: process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000',
+    },
     colorMode: {
       respectPrefersColorScheme: true,
     },
