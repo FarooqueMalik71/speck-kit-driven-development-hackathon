@@ -57,6 +57,7 @@ const config: Config = {
     image: 'img/docusaurus-social-card.jpg',
     // Pass environment variables to client
     customFields: {
+      // Use environment variable for production, fallback to localhost for development
       BACKEND_URL: process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000',
     },
     clientModules: [
