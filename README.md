@@ -17,8 +17,9 @@ This is an AI-native textbook platform that combines traditional textbook conten
 │   ├── src/               # Custom components
 │   ├── static/            # Static assets
 │   └── docusaurus.config.ts
-└── specs/                  # Project specifications
-    └── 1-ai-textbook/     # Current feature specs
+├── api/                    # Vercel-ready serverless API endpoints
+├── specs/                  # Project specifications
+└── app.py                  # Hugging Face Spaces entry point
 ```
 
 ## Tech Stack
@@ -29,9 +30,41 @@ This is an AI-native textbook platform that combines traditional textbook conten
 - **Vector DB**: Qdrant Cloud
 - **Relational DB**: Neon Serverless Postgres
 - **Authentication**: Better-Auth
-- **Deployment**: Vercel
+- **Deployment**: Vercel (frontend), Hugging Face Spaces (backend)
 
-## Setup
+## Hugging Face Deployment
+
+This application is ready for deployment on Hugging Face Spaces using the FastAPI runtime.
+
+### Environment Variables
+
+The following environment variables need to be set in Hugging Face Spaces:
+
+- `GEMINI_API_KEY`: Your Google Gemini API key (for default model)
+- `OPENAI_API_KEY`: Your OpenAI API key (optional, for OpenAI models)
+- `OPENROUTER_API_KEY`: Your OpenRouter API key (optional, for OpenRouter models)
+- `LLM_PROVIDER`: Which LLM provider to use ("gemini", "openai", or "openrouter")
+- `MODEL_NAME`: Model name to use (default: "mistralai/devstral-2512:free")
+
+### API Endpoints
+
+- `GET /`: Health check endpoint
+- `GET /health`: Health status
+- `POST /query`: Query the textbook with your question
+
+### Query Format
+
+Send a POST request to `/query` with JSON body:
+
+```json
+{
+  "query": "Your question about the textbook",
+  "context_ids": [],
+  "mode": "full_book"
+}
+```
+
+## Local Development
 
 ### Backend Setup
 
@@ -48,29 +81,23 @@ This is an AI-native textbook platform that combines traditional textbook conten
 
 3. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   pip install -r requirements_basic.txt
    ```
 
 4. Set up environment variables:
-   - Copy `.env.example` to `.env` and fill in your API keys
+   - Copy `backend/.env.example` to `backend/.env` and fill in your API keys
    - Required variables:
-     - `COHERE_API_KEY`: Your Cohere API key for embeddings
-     - `QDRANT_API_KEY`: Your Qdrant cloud API key
-     - `QDRANT_HOST`: Your Qdrant cloud host URL
-     - `QDRANT_PORT`: Your Qdrant port (typically 6333)
-     - `BOOK_URL`: URL of the website to ingest for RAG (optional for chat functionality)
+     - `GEMINI_API_KEY`: Your Google Gemini API key
+     - `OPENAI_API_KEY`: Your OpenAI API key (optional)
+     - `OPENROUTER_API_KEY`: Your OpenRouter API key (optional)
+     - `LLM_PROVIDER`: LLM provider to use ("gemini", "openai", or "openrouter")
+     - `MODEL_NAME`: Model name to use
 
 5. Start the backend server:
    ```bash
-   python start_server.py
+   python run_server.py
    ```
    The server will be available at http://localhost:8000
-
-6. (Optional) Ingest website content for RAG:
-   - Use the `/ingest` endpoint or run the ingestion CLI:
-   ```bash
-   python -m src.main --url "https://example.com" --max-pages 10
-   ```
 
 ### Frontend (Textbook) Setup
 

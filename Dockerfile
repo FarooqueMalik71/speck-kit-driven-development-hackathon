@@ -15,7 +15,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY backend/requirements.txt .
+COPY backend/requirements_basic.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project
