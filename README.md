@@ -1,3 +1,14 @@
+---
+title: AI-Native Textbook Platform
+emoji: 🤖
+colorFrom: blue
+colorTo: green
+sdk: docker
+sdk_version: "3.11"
+app_file: app.py
+pinned: false
+---
+
 # Physical AI & Humanoid Robotics — An AI-Native Textbook for Embodied Intelligence
 
 This is an AI-native textbook platform that combines traditional textbook content with AI-powered interactive features. The system provides a Docusaurus-based frontend with embedded AI capabilities including RAG (Retrieval-Augmented Generation) chatbot, personalization, and translation services.
@@ -17,8 +28,9 @@ This is an AI-native textbook platform that combines traditional textbook conten
 │   ├── src/               # Custom components
 │   ├── static/            # Static assets
 │   └── docusaurus.config.ts
-└── specs/                  # Project specifications
-    └── 1-ai-textbook/     # Current feature specs
+├── api/                    # Vercel-ready serverless API endpoints
+├── specs/                  # Project specifications
+└── app.py                  # Hugging Face Spaces entry point
 ```
 
 ## Tech Stack
@@ -29,9 +41,41 @@ This is an AI-native textbook platform that combines traditional textbook conten
 - **Vector DB**: Qdrant Cloud
 - **Relational DB**: Neon Serverless Postgres
 - **Authentication**: Better-Auth
-- **Deployment**: Vercel
+- **Deployment**: Vercel (frontend), Hugging Face Spaces (backend)
 
-## Setup
+## Hugging Face Deployment
+
+This application is ready for deployment on Hugging Face Spaces using the FastAPI runtime.
+
+### Environment Variables
+
+The following environment variables need to be set in Hugging Face Spaces:
+
+- `GEMINI_API_KEY`: Your Google Gemini API key (for default model)
+- `OPENAI_API_KEY`: Your OpenAI API key (optional, for OpenAI models)
+- `OPENROUTER_API_KEY`: Your OpenRouter API key (optional, for OpenRouter models)
+- `LLM_PROVIDER`: Which LLM provider to use ("gemini", "openai", or "openrouter")
+- `MODEL_NAME`: Model name to use (default: "mistralai/devstral-2512:free")
+
+### API Endpoints
+
+- `GET /`: Health check endpoint
+- `GET /health`: Health status
+- `POST /query`: Query the textbook with your question
+
+### Query Format
+
+Send a POST request to `/query` with JSON body:
+
+```json
+{
+  "query": "Your question about the textbook",
+  "context_ids": [],
+  "mode": "full_book"
+}
+```
+
+## Local Development
 
 ### Backend Setup
 
@@ -48,10 +92,23 @@ This is an AI-native textbook platform that combines traditional textbook conten
 
 3. Install dependencies:
    ```bash
-   pip install -r requirements.txt
+   pip install -r requirements_basic.txt
    ```
 
-4. Set up environment variables (copy `.env.example` to `.env` and fill in values)
+4. Set up environment variables:
+   - Copy `backend/.env.example` to `backend/.env` and fill in your API keys
+   - Required variables:
+     - `GEMINI_API_KEY`: Your Google Gemini API key
+     - `OPENAI_API_KEY`: Your OpenAI API key (optional)
+     - `OPENROUTER_API_KEY`: Your OpenRouter API key (optional)
+     - `LLM_PROVIDER`: LLM provider to use ("gemini", "openai", or "openrouter")
+     - `MODEL_NAME`: Model name to use
+
+5. Start the backend server:
+   ```bash
+   python run_server.py
+   ```
+   The server will be available at http://localhost:8000
 
 ### Frontend (Textbook) Setup
 
@@ -69,6 +126,10 @@ This is an AI-native textbook platform that combines traditional textbook conten
    ```bash
    npm start
    ```
+
+4. Access the AI chat interface at:
+   - Main site: http://localhost:3000
+   - AI Chat: http://localhost:3000/ai-chat
 
 ## Features
 

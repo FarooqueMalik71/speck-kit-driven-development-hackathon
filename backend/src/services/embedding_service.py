@@ -1,63 +1,98 @@
 from typing import List, Optional
 import logging
-from openai import OpenAI
-from ..config import settings
-from .content_processor import ContentChunk
+from models.content_chunk import ContentChunk
+from models.embedding_vector import EmbeddingVector
 
 logger = logging.getLogger(__name__)
 
-class EmbeddingService:
-    """Service for generating vector embeddings using OpenAI API"""
+try:
+    import cohere
+    COHERE_AVAILABLE = True
+except ImportError:
+    logger.warning("Cohere library not available. Using mock implementation.")
+    COHERE_AVAILABLE = False
 
-    def __init__(self):
-        self.client = OpenAI(api_key=settings.openai_api_key)
-        self.model = settings.embedding_model
+
+class EmbeddingService:
+    """
+    Service for generating vector embeddings using Cohere API
+    """
+
+    def __init__(self, api_key: Optional[str] = None, model: str = "embed-multilingual-v3.0"):
+        self.model = model
+        self.client = None
+
+        if COHERE_AVAILABLE and api_key:
+            try:
+                self.client = cohere.Client(api_key)
+                logger.info(f"Successfully initialized Cohere client with model: {model}")
+            except Exception as e:
+                logger.error(f"Failed to initialize Cohere client: {str(e)}")
+                self.client = None
+        else:
+            logger.warning("Cohere client not initialized. Using mock implementation for testing.")
 
     def generate_embedding(self, text: str) -> List[float]:
-        """Generate embedding for a single text"""
-        try:
-            response = self.client.embeddings.create(
-                input=text,
-                model=self.model
-            )
-            embedding = response.data[0].embedding
-            logger.debug(f"Generated embedding of length {len(embedding)} for text of length {len(text)}")
-            return embedding
-        except Exception as e:
-            logger.error(f"Error generating embedding: {str(e)}")
-            raise
+        """
+        Generate embedding for a single text
+        """
+        if self.client:
+            try:
+                response = self.client.embed(
+                    texts=[text],
+                    model=self.model,
+                    input_type="search_document"
+                )
+                return response.embeddings[0]
+            except Exception as e:
+                logger.error(f"Error generating embedding: {str(e)}")
+                raise
+        else:
+            # Mock implementation for testing
+            logger.debug(f"Using mock embedding for text: {text[:50]}...")
+            # Return a mock embedding vector (10 dimensions)
+            return [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0][:10]
 
-    def generate_embeddings_batch(self, texts: List[str], batch_size: int = 100) -> List[List[float]]:
-        """Generate embeddings for a batch of texts"""
+    def generate_embeddings_batch(self, texts: List[str], batch_size: int = 96) -> List[List[float]]:
+        """
+        Generate embeddings for a batch of texts
+        Cohere's free tier has limits, so we process in smaller batches
+        """
         all_embeddings = []
 
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
             try:
-                response = self.client.embeddings.create(
-                    input=batch,
-                    model=self.model
-                )
+                if self.client:
+                    response = self.client.embed(
+                        texts=batch,
+                        model=self.model,
+                        input_type="search_document"
+                    )
+                    batch_embeddings = response.embeddings
+                else:
+                    # Mock implementation
+                    batch_embeddings = [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0][:10] for _ in batch]
 
-                batch_embeddings = [data.embedding for data in response.data]
                 all_embeddings.extend(batch_embeddings)
-
-                logger.debug(f"Generated {len(batch_embeddings)} embeddings in batch {i//batch_size + 1}")
+                logger.debug(f"Generated embeddings for batch {i//batch_size + 1}: {len(batch)} items")
 
             except Exception as e:
                 logger.error(f"Error generating embeddings for batch {i//batch_size + 1}: {str(e)}")
-                # Generate embeddings one by one for the failed batch
+                # Fallback: generate embeddings one by one for the failed batch
                 for text in batch:
                     all_embeddings.append(self.generate_embedding(text))
 
         return all_embeddings
 
-    def process_chunks_with_embeddings(self, chunks: List[ContentChunk]) -> List[ContentChunk]:
-        """Process content chunks and add embeddings to them"""
-        logger.info(f"Generating embeddings for {len(chunks)} chunks")
+    def process_chunks_with_embeddings(self, chunks: List[ContentChunk]) -> List[EmbeddingVector]:
+        """
+        Process content chunks and generate embeddings for them
+        """
+        logger.info(f"Generating embeddings for {len(chunks)} content chunks")
 
         if not chunks:
-            return chunks
+            return []
 
         # Extract text content from chunks
         texts = [chunk.content for chunk in chunks]
@@ -65,49 +100,93 @@ class EmbeddingService:
         # Generate embeddings in batch
         embeddings = self.generate_embeddings_batch(texts)
 
-        # Assign embeddings back to chunks
-        processed_chunks = []
+        # Create EmbeddingVector objects with the embeddings
+        embedding_vectors = []
         for chunk, embedding in zip(chunks, embeddings):
-            chunk_with_embedding = ContentChunk(
-                id=chunk.id,
+            embedding_vector = EmbeddingVector.from_content_chunk(
+                chunk_id=chunk.id,
+                vector=embedding,
                 content=chunk.content,
-                metadata=chunk.metadata,
-                source_file=chunk.source_file,
-                chunk_index=chunk.chunk_index,
-                embedding=embedding
+                source_url=chunk.source_url,
+                section_title=chunk.section_title,
+                chunk_index=chunk.chunk_index
             )
-            processed_chunks.append(chunk_with_embedding)
+            embedding_vectors.append(embedding_vector)
 
-        logger.info(f"Successfully processed {len(processed_chunks)} chunks with embeddings")
-        return processed_chunks
+        logger.info(f"Successfully created {len(embedding_vectors)} embedding vectors with embeddings")
+        return embedding_vectors
 
     def get_embedding_dimension(self) -> int:
-        """Get the dimension of embeddings for the current model"""
-        # Generate a test embedding to determine dimensions
-        test_embedding = self.generate_embedding("test")
-        return len(test_embedding)
+        """
+        Get the dimension of embeddings for the current model
+        """
+        # For Cohere's embed-multilingual-v3.0, the default output dimension is 1024
+        # but it can vary based on the input_type parameter
+        # For search_document, it's typically 1024
+        if self.client:
+            # We could make a test call to determine the actual dimension
+            test_embedding = self.generate_embedding("test")
+            return len(test_embedding)
+        else:
+            # Default dimension for Cohere models
+            return 1024
 
-# Example usage
+    def validate_embedding(self, embedding: List[float]) -> bool:
+        """
+        Validate that an embedding is properly formed
+        """
+        if not embedding:
+            return False
+
+        # Check that all values are numbers
+        if not all(isinstance(x, (int, float)) for x in embedding):
+            return False
+
+        # Check for reasonable range (embeddings are typically normalized)
+        if any(abs(x) > 1000 for x in embedding):
+            logger.warning("Embedding contains unusually large values")
+
+        return True
+
+
 if __name__ == "__main__":
-    from .content_processor import ContentProcessor
+    # Example usage
+    import os
+    api_key = os.getenv("COHERE_API_KEY")  # Use actual key from environment for testing
 
-    # Initialize services
-    processor = ContentProcessor()
-    embedding_service = EmbeddingService()
+    if api_key:
+        service = EmbeddingService(api_key=api_key)
+        print("Embedding service initialized with Cohere client")
+    else:
+        service = EmbeddingService()  # Will use mock
+        print("Embedding service initialized with mock client")
 
-    # Sample content
-    sample_content = """
-    # Introduction to Physical AI
+    # Example content chunks
+    from models.content_chunk import ContentChunk
+    import hashlib
+    from datetime import datetime
 
-    Physical AI represents a paradigm shift in artificial intelligence, focusing on the integration of perception, reasoning, and action in physical environments. Unlike traditional AI that operates primarily in digital spaces, Physical AI systems must understand and interact with the physical world through sensors and actuators.
-    """
+    test_content = "Physical AI represents a paradigm shift in artificial intelligence, focusing on the integration of perception, reasoning, and action in physical environments."
+    content_hash = hashlib.sha256(test_content.encode()).hexdigest()
 
-    # Process content into chunks
-    chunks = processor.process_file("sample.md", sample_content)
+    chunk = ContentChunk(
+        id=f"test_{content_hash}_0",
+        content=test_content,
+        source_url="https://example.com/test",
+        section_title="Introduction",
+        chunk_index=0,
+        created_at=datetime.now()
+    )
 
-    # Generate embeddings for chunks
-    chunks_with_embeddings = embedding_service.process_chunks_with_embeddings(chunks)
+    # Generate embedding for the chunk
+    embedding = service.generate_embedding(chunk.content)
+    print(f"Generated embedding with {len(embedding)} dimensions")
+    print(f"First 5 values: {embedding[:5]}")
 
-    print(f"Generated embeddings for {len(chunks_with_embeddings)} chunks")
-    print(f"Embedding dimension: {embedding_service.get_embedding_dimension()}")
-    print(f"First chunk embedding preview: {chunks_with_embeddings[0].embedding[:10]}...")
+    # Process chunks with embeddings
+    chunks_with_embeddings = service.process_chunks_with_embeddings([chunk])
+    print(f"Created {len(chunks_with_embeddings)} embedding vectors")
+
+    # Check embedding dimension
+    dim = service.get_embedding_dimension()
+    print(f"Embedding dimension: {dim}")

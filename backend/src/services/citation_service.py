@@ -217,6 +217,43 @@ class CitationService:
         logger.info(f"Citation creation complete: {len(citations)} citations, valid={result['has_valid_sources']}")
         return result
 
+    def create_reference_section(self, results: List[RetrievalResult]) -> str:
+        """Create a proper reference section for textbook responses"""
+        if not results:
+            return "📘 **Further Reading / Reference**\n- No references available for this query."
+
+        reference_section = "📘 **Further Reading / Reference**\n"
+
+        for i, result in enumerate(results, 1):
+            section_title = result.metadata.get('section_title', 'Section')
+            source_file = result.source_file
+            description = result.content[:100] + "..." if len(result.content) > 100 else result.content
+
+            reference_section += f"{i}. {section_title} - {source_file}\n"
+
+        return reference_section
+
+    def generate_textbook_references(self, results: List[RetrievalResult]) -> List[Dict[str, Any]]:
+        """Generate proper textbook-style reference objects from results"""
+        references = []
+
+        for result in results:
+            section_title = result.metadata.get('section_title', 'Section')
+            source_file = result.source_file
+            description = result.content[:200] + "..." if len(result.content) > 200 else result.content
+
+            reference = {
+                'type': 'internal',
+                'title': section_title,
+                'url': f"/docs/{source_file.replace(' ', '_').lower()}" if source_file else "#",
+                'description': description,
+                'relevance': result.relevance_score
+            }
+
+            references.append(reference)
+
+        return references
+
 # Example usage
 if __name__ == "__main__":
     from .retrieval_service import RetrievalResult

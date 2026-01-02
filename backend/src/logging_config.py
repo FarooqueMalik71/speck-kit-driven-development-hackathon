@@ -14,14 +14,10 @@ def setup_logging(log_level: str = "INFO", log_file: Optional[str] = None):
             timestamp = datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
             # Format the log message
-            if record.levelno == logging.INFO:
-                log_format = f"{timestamp} | {record.levelname} | {record.name} | {record.getMessage()}"
-            else:
-                log_format = f"{timestamp} | {record.levelname} | {record.name} | {record.getMessage()}"
+            log_message = f"{timestamp} | {record.levelname} | {record.name} | {record.getMessage()}"
 
-            # Create formatter with the format
-            formatter = logging.Formatter(log_format)
-            return formatter.format(record)
+            # Return the formatted message directly
+            return log_message
 
     # Get the root logger
     root_logger = logging.getLogger()
