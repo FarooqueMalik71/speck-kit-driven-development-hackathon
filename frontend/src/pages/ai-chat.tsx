@@ -50,16 +50,15 @@ const AIChatPage: React.FC = () => {
         context_ids: queryMode === 'selected_text' && selectedText ? [selectedText] : []
       };
 
-      // In a real implementation, this would call the backend API
-      // For now, we'll simulate the response
-      const response = await simulateAIResponse(queryPayload);
+      // Call the backend API to get AI response
+      const response = await getAIResponse(queryPayload);
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: response.answer,
         sender: 'ai',
         timestamp: new Date(),
-        citations: response.citations
+        citations: response.citations || []
       };
 
       setMessages(prev => [...prev, aiMessage]);
@@ -76,39 +75,30 @@ const AIChatPage: React.FC = () => {
     }
   };
 
-  // Simulate AI response - in real implementation, this would call the backend API
-  const simulateAIResponse = async (queryPayload: any): Promise<any> => {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  // Real API call to backend
+  const getAIResponse = async (queryPayload: any): Promise<any> => {
+    try {
+      // Get the backend URL from site config custom fields
+      const customFields = (siteConfig as any).customFields || {};
+      const backendUrl = customFields.backendUrl || 'https://farooquemalik50871-AI-Book-Backend.hf.space';
 
-    // This is a placeholder - in a real implementation, this would call your backend API
-    // const response = await fetch('http://localhost:8000/query', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify(queryPayload),
-    // });
-    //
-    // if (!response.ok) {
-    //   throw new Error(`API request failed with status ${response.status}`);
-    // }
-    //
-    // return await response.json();
+      const response = await fetch(`${backendUrl}/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(queryPayload),
+      });
 
-    // For simulation purposes
-    return {
-      answer: `Based on the textbook content, here's information about: "${queryPayload.query}". This is a simulated response from the AI assistant. In the full implementation, this would connect to the RAG system to provide contextually relevant answers from the textbook content.`,
-      citations: [
-        'Introduction to Physical AI & Humanoid Robotics',
-        'Overview of Physical AI and Humanoid Robotics'
-      ],
-      confidence: 0.85,
-      is_confident: true,
-      sources: ['docs/intro.md', 'docs/overview.md'],
-      boundary_compliance: 1.0,
-      needs_fact_check: false
-    };
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching AI response:', error);
+      throw error;
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

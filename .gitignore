@@ -41,6 +41,9 @@ coverage.xml
 .pytest_cache/
 .hypothesis/
 
+# Additional Python environments
+huggingface_validation_env/
+
 # FastAPI specific
 *.db
 *.db-journal
@@ -57,6 +60,16 @@ src/**/*.js
 src/**/*.jsx
 src/**/*.ts
 src/**/*.tsx
+
+# Root node_modules (frontend has its own)
+/node_modules/
+
+# Additional build artifacts
+*.log
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
 
 # Docusaurus
 .docusaurus/
