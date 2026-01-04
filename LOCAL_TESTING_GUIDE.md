@@ -11,6 +11,43 @@ This guide will help you test the frontend-backend integration locally before de
 
 ## Step 1: Start the Backend Server
 
+### Option A: Using the Test Backend (Recommended for local testing)
+
+If the main backend has dependency issues, use the test backend:
+
+1. Open a terminal/command prompt
+2. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+
+3. Create and activate a virtual environment:
+   ```bash
+   # On Windows:
+   python -m venv venv
+   venv\Scripts\activate
+
+   # On macOS/Linux:
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+
+4. Install minimal dependencies for the test backend:
+   ```bash
+   pip install fastapi uvicorn
+   ```
+
+5. Start the test backend server:
+   ```bash
+   python test_backend.py
+   ```
+
+   The server should start on `http://localhost:8000`
+
+### Option B: Using the Main Backend
+
+If you want to try the main backend:
+
 1. Open a terminal/command prompt
 2. Navigate to the backend directory:
    ```bash
@@ -44,7 +81,7 @@ This guide will help you test the frontend-backend integration locally before de
    MODEL_NAME=gemini-1.5-flash
    ```
 
-6. Start the backend server:
+6. Start the main backend server:
    ```bash
    python start_server.py
    ```
@@ -119,7 +156,11 @@ curl -X POST http://localhost:8000/query \
 
 ### Issue: Backend not starting
 - **Error**: Import errors or missing dependencies
-- **Solution**: Install all dependencies with `pip install -r requirements.txt`
+- **Solution**: Use the test backend (`python test_backend.py`) for local testing, or install all dependencies with `pip install -r requirements.txt`
+
+### Issue: Main backend shows "AI services are not available due to missing dependencies"
+- **Error**: 503 error from the main backend
+- **Solution**: This is a common issue with the main backend. Use the test backend for local development: `python test_backend.py`
 
 ### Issue: Frontend can't connect to backend
 - **Error**: CORS errors or network errors
@@ -132,6 +173,10 @@ curl -X POST http://localhost:8000/query \
 ### Issue: Frontend shows "API request failed"
 - **Error**: Network error in the frontend
 - **Solution**: Verify the backend is running and accessible, check browser console for specific error messages
+
+### Issue: Services not available error
+- **Error**: The main backend shows "AI services are not available due to missing dependencies"
+- **Solution**: This occurs when service imports fail. Use the test backend for local development, which bypasses these dependencies.
 
 ## Expected Behavior
 

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(powershell -Command \"Stop-Process -Id 12684 -Force\")",
       "Bash(pip install fastapi==0.104.1)",
-      "Bash(pip install pydantic==2.5.0)"
+      "Bash(pip install pydantic==2.5.0)",
+      "Bash(git push origin main)"
     ]
   }
 }
