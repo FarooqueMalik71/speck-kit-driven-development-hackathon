@@ -79,7 +79,7 @@ const AIChatPage: React.FC = () => {
   const getAIResponse = async (queryPayload: any): Promise<any> => {
     try {
       // Get the backend URL from site config custom fields
-      const customFields = (siteConfig as any).customFields || {};
+      const customFields = (siteConfig.customFields as any) || {};
       const backendUrl = customFields.backendUrl || 'https://farooquemalik50871-AI-Book-Backend.hf.space';
 
       const response = await fetch(`${backendUrl}/query`, {
