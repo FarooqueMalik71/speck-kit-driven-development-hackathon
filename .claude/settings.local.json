@@ -4,7 +4,13 @@
       "Bash(powershell -Command \"Stop-Process -Id 12684 -Force\")",
       "Bash(pip install fastapi==0.104.1)",
       "Bash(pip install pydantic==2.5.0)",
-      "Bash(git push origin main)"
+      "Bash(git push origin main)",
+      "Bash(findstr :8000)",
+      "Bash(findstr :3000)",
+      "Bash(findstr LISTENING)",
+      "Bash(curl -X POST http://localhost:8000/query -H \"Content-Type: application/json\" -d \"{\"\"query\"\":\"\"What is this textbook about?\"\",\"\"mode\"\":\"\"full_book\"\"}\")",
+      "Bash(curl -X GET http://localhost:8000/health)",
+      "Bash(curl -X GET https://farooquemalik50871-ai-book-backend.hf.space/health)"
     ]
   }
 }

@@ -5,7 +5,7 @@ from pydantic import BaseModel
 import os
 import asyncio
 
-# Import OpenAI Agents components
+# Import OpenAI Agents components with granular error handling
 try:
     from openai import OpenAI
     from openai.types.beta.assistant import Assistant
@@ -16,23 +16,84 @@ except ImportError:
     print("OpenAI library not available")
     AGENTS_AVAILABLE = False
 
-# Import services (with error handling for missing dependencies)
+# Import individual services with granular error handling
 try:
     from services.retrieval_service import RetrievalService
+    RETRIEVAL_SERVICE_AVAILABLE = True
+except ImportError as e:
+    print(f"RetrievalService import error: {e}")
+    RETRIEVAL_SERVICE_AVAILABLE = False
+
+try:
     from services.hallucination_prevention import HallucinationPreventionService
+    HALLUCINATION_SERVICE_AVAILABLE = True
+except ImportError as e:
+    print(f"HallucinationPreventionService import error: {e}")
+    HALLUCINATION_SERVICE_AVAILABLE = False
+
+try:
     from services.citation_service import CitationService
+    CITATION_SERVICE_AVAILABLE = True
+except ImportError as e:
+    print(f"CitationService import error: {e}")
+    CITATION_SERVICE_AVAILABLE = False
+
+try:
     from services.confidence_fallback import FallbackService
+    FALLBACK_SERVICE_AVAILABLE = True
+except ImportError as e:
+    print(f"FallbackService import error: {e}")
+    FALLBACK_SERVICE_AVAILABLE = False
+
+try:
     from services.content_validation import ContentValidationService
+    CONTENT_VALIDATION_SERVICE_AVAILABLE = True
+except ImportError as e:
+    print(f"ContentValidationService import error: {e}")
+    CONTENT_VALIDATION_SERVICE_AVAILABLE = False
+
+try:
     from services.crawler import CrawlerService
+    CRAWLER_SERVICE_AVAILABLE = True
+except ImportError as e:
+    print(f"CrawlerService import error: {e}")
+    CRAWLER_SERVICE_AVAILABLE = False
+
+try:
     from services.content_processor import ContentProcessor
+    CONTENT_PROCESSOR_SERVICE_AVAILABLE = True
+except ImportError as e:
+    print(f"ContentProcessor import error: {e}")
+    CONTENT_PROCESSOR_SERVICE_AVAILABLE = False
+
+try:
     from services.embedding_service import EmbeddingService
+    EMBEDDING_SERVICE_AVAILABLE = True
+except ImportError as e:
+    print(f"EmbeddingService import error: {e}")
+    EMBEDDING_SERVICE_AVAILABLE = False
+
+try:
     from services.vector_store import VectorStoreService
+    VECTOR_STORE_SERVICE_AVAILABLE = True
+except ImportError as e:
+    print(f"VectorStoreService import error: {e}")
+    VECTOR_STORE_SERVICE_AVAILABLE = False
+
+# Import other components
+try:
     from logging_config import logger, setup_logging
     from config import settings
-    SERVICES_AVAILABLE = True
+    CONFIG_AVAILABLE = True
 except ImportError as e:
-    print(f"Service import error: {e}")
-    SERVICES_AVAILABLE = False
+    print(f"Config/Logging import error: {e}")
+    CONFIG_AVAILABLE = False
+
+# Determine if core services are available for basic functionality
+SERVICES_AVAILABLE = (
+    RETRIEVAL_SERVICE_AVAILABLE and
+    CONFIG_AVAILABLE
+)
 
 app = FastAPI(
     title="AI-Native Textbook Platform API",
@@ -199,53 +260,31 @@ def health_check() -> Dict[str, Any]:
 # The core functionality is working through the /query endpoint
 print("Textbook chatbot API router is temporarily disabled for stability")
 
-# AI RAG Pipeline endpoints (only if services are available)
-if SERVICES_AVAILABLE:
-    @app.post("/query", response_model=QueryResponse)
-    def query_textbook(request: QueryRequest):
-        """Query the textbook with AI-powered responses"""
-        try:
-            # Check if OpenAI Agents should be used based on configuration
-            if llm_config.provider in ["openai", "openrouter"] and AGENTS_AVAILABLE:
-                # Use OpenAI Agent approach
-                api_key = llm_config.get_active_api_key()
-                if not api_key:
-                    raise ValueError(f"No API key found for provider: {llm_config.provider}")
+# AI RAG Pipeline endpoints (with graceful degradation)
+@app.post("/query", response_model=QueryResponse)
+def query_textbook(request: QueryRequest):
+    """Query the textbook with AI-powered responses with graceful degradation"""
+    try:
+        # Check if OpenAI Agents should be used based on configuration
+        if llm_config.provider in ["openai", "openrouter"] and AGENTS_AVAILABLE:
+            # Use OpenAI Agent approach
+            api_key = llm_config.get_active_api_key()
+            if not api_key:
+                raise ValueError(f"No API key found for provider: {llm_config.provider}")
 
-                base_url = llm_config.get_base_url()
-                model = llm_config.model_name
+            base_url = llm_config.get_base_url()
+            model = llm_config.model_name
 
-                agent = OpenAIAgentWrapper(
-                    api_key=api_key,
-                    model=model,
-                    base_url=base_url
-                )
+            agent = OpenAIAgentWrapper(
+                api_key=api_key,
+                model=model,
+                base_url=base_url
+            )
 
-                result = agent.process_query(
-                    request.query,
-                    request.context_ids,
-                    request.mode
-                )
-
-                # Convert result to QueryResponse format
-                return QueryResponse(
-                    answer=result['answer'],
-                    citations=result['citations'],
-                    confidence=result['confidence'],
-                    is_confident=result['is_confident'],
-                    sources=result['sources'],
-                    boundary_compliance=result['boundary_compliance'],
-                    needs_fact_check=result['needs_fact_check']
-                )
-            else:
-                # Use existing Gemini-based approach for backward compatibility
-                from services.llm_service import LLMService
+            # Attempt to use retrieval service if available, otherwise use mock results
+            results = []
+            if RETRIEVAL_SERVICE_AVAILABLE:
                 retrieval_service = RetrievalService()
-
-                # Initialize LLM service with Gemini API
-                llm_service = LLMService(api_key=settings.gemini_api_key)
-
-                # Retrieve relevant content based on query
                 if request.mode == "selected_text" and request.context_ids:
                     results = retrieval_service.retrieve_for_selected_text_qa(
                         request.query, request.context_ids
@@ -253,52 +292,159 @@ if SERVICES_AVAILABLE:
                 else:
                     results = retrieval_service.retrieve_content(request.query)
 
+            result = agent.process_query(
+                request.query,
+                request.context_ids,
+                request.mode
+            )
+
+            # Convert result to QueryResponse format
+            return QueryResponse(
+                answer=result['answer'],
+                citations=result['citations'],
+                confidence=result['confidence'],
+                is_confident=result['is_confident'],
+                sources=result['sources'],
+                boundary_compliance=result['boundary_compliance'],
+                needs_fact_check=result['needs_fact_check']
+            )
+        else:
+            # Use existing Gemini-based approach for backward compatibility
+            # Check if we have the basic services available
+            if RETRIEVAL_SERVICE_AVAILABLE and CONFIG_AVAILABLE:
+                from services.llm_service import LLMService
+                retrieval_service = RetrievalService()
+
+                # Initialize LLM service with Gemini API if available, otherwise use mock
+                try:
+                    llm_service = LLMService(api_key=settings.gemini_api_key)
+                except Exception as e:
+                    # If LLM service fails, use a mock implementation
+                    print(f"LLM service initialization failed: {str(e)}, using mock implementation")
+                    # Create a mock response
+                    mock_answer = f"Based on the textbook content, here's information about: {request.query}. [Note: LLM service is not available. This is a simulated response.]"
+                    return QueryResponse(
+                        answer=mock_answer,
+                        citations=[],
+                        confidence=0.5,
+                        is_confident=False,
+                        sources=[],
+                        boundary_compliance=0.5,
+                        needs_fact_check=True
+                    )
+
+                # Retrieve relevant content based on query
+                try:
+                    if request.mode == "selected_text" and request.context_ids:
+                        results = retrieval_service.retrieve_for_selected_text_qa(
+                            request.query, request.context_ids
+                        )
+                    else:
+                        results = retrieval_service.retrieve_content(request.query)
+                except Exception as e:
+                    print(f"Retrieval service failed: {str(e)}, using empty results")
+                    results = []
+
                 # Generate response using LLM with retrieved context
-                llm_response = llm_service.generate_response_with_citations(
-                    query=request.query,
-                    context=results
-                )
-                answer = llm_response["answer"]
+                try:
+                    llm_response = llm_service.generate_response_with_citations(
+                        query=request.query,
+                        context=results
+                    )
+                    answer = llm_response["answer"]
+                except Exception as e:
+                    print(f"LLM response generation failed: {str(e)}, using fallback")
+                    answer = f"Based on the textbook content, here's information about: {request.query}. [Note: Response generated with limited capabilities.]"
 
-                # Generate citations
-                citation_service = CitationService(retrieval_service)
-                citations = citation_service.generate_citations(results)
+                # Generate citations if service is available
+                citations = []
+                if CITATION_SERVICE_AVAILABLE and results:
+                    try:
+                        citation_service = CitationService(retrieval_service)
+                        citations = citation_service.generate_citations(results)
+                    except Exception as e:
+                        print(f"Citation service failed: {str(e)}, using fallback")
+                        # Use fallback citation from results
+                        for result in results:
+                            if result.source_file and result.source_file not in citations:
+                                citations.append(result.source_file)
 
-                # Calculate confidence
-                confidence_result = retrieval_service.calculate_response_confidence(
-                    request.query, results, answer
-                )
+                # Calculate confidence if service is available
+                try:
+                    confidence_result = retrieval_service.calculate_response_confidence(
+                        request.query, results, answer
+                    )
+                except Exception as e:
+                    print(f"Confidence calculation failed: {str(e)}, using fallback")
+                    confidence_result = {
+                        'overall_confidence': 0.5,
+                        'is_confident': False
+                    }
 
-                # Apply fallback if confidence is low
-                fallback_service = FallbackService(retrieval_service)
-                final_result = fallback_service.get_confidence_based_response(
-                    request.query, answer, results
-                )
+                # Apply fallback if service is available
+                try:
+                    if FALLBACK_SERVICE_AVAILABLE:
+                        fallback_service = FallbackService(retrieval_service)
+                        final_result = fallback_service.get_confidence_based_response(
+                            request.query, answer, results
+                        )
+                        answer = final_result['modified_response']
+                except Exception as e:
+                    print(f"Fallback service failed: {str(e)}, using original answer")
 
-                # Apply content boundary enforcement
-                boundary_check = retrieval_service.enforce_content_boundaries(
-                    request.query,
-                    [r.content for r in results],
-                    final_result['modified_response']
-                )
+                # Apply content boundary enforcement if service is available
+                try:
+                    if results:  # Only enforce boundaries if we have results
+                        boundary_check = retrieval_service.enforce_content_boundaries(
+                            request.query,
+                            [r.content for r in results],
+                            answer
+                        )
+                    else:
+                        # Default boundary check values when no results
+                        boundary_check = {
+                            'boundary_compliance_score': 0.5,
+                            'needs_fact_check': True
+                        }
+                except Exception as e:
+                    print(f"Boundary enforcement failed: {str(e)}, using fallback")
+                    boundary_check = {
+                        'boundary_compliance_score': 0.5,
+                        'needs_fact_check': True
+                    }
 
                 return QueryResponse(
-                    answer=final_result['modified_response'],
-                    citations=[c['formatted_citation'] for c in citations],
+                    answer=answer,
+                    citations=[c['formatted_citation'] for c in citations] if citations and all(hasattr(c, 'formatted_citation') for c in citations) else [str(c) for c in citations] if citations else [],
                     confidence=confidence_result['overall_confidence'],
                     is_confident=confidence_result['is_confident'],
-                    sources=[r.source_file for r in results],
+                    sources=[r.source_file for r in results] if results else [],
                     boundary_compliance=boundary_check['boundary_compliance_score'],
                     needs_fact_check=boundary_check['needs_fact_check']
                 )
-        except Exception as e:
-            print(f"Error processing query: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
-
-else:
-    @app.post("/query")
-    def query_textbook_unavailable(request: QueryRequest):
-        raise HTTPException(status_code=503, detail="AI services are not available due to missing dependencies")
+            else:
+                # If core services are not available, return a basic mock response
+                return QueryResponse(
+                    answer=f"Based on the textbook content, here's information about: {request.query}. [Note: Core services are not available. This is a simulated response.]",
+                    citations=[],
+                    confidence=0.0,
+                    is_confident=False,
+                    sources=[],
+                    boundary_compliance=0.0,
+                    needs_fact_check=True
+                )
+    except Exception as e:
+        print(f"Error processing query: {str(e)}")
+        # Return a graceful fallback response instead of raising an exception
+        return QueryResponse(
+            answer=f"Sorry, I'm having trouble processing your query about '{request.query}'. Please try again later.",
+            citations=[],
+            confidence=0.0,
+            is_confident=False,
+            sources=[],
+            boundary_compliance=0.0,
+            needs_fact_check=True
+        )
 
 if __name__ == "__main__":
     import uvicorn

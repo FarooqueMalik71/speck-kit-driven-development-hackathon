@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the backend requirements first for better caching
-COPY backend/requirements_hf.txt requirements.txt
+COPY backend/requirements_hf_optimized.txt requirements.txt
 
 # Upgrade pip and install dependencies with error handling
 RUN pip install --upgrade pip && \
