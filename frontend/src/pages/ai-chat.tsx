@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from '@theme/Layout';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 
@@ -8,13 +8,14 @@ interface Message {
   sender: 'user' | 'ai';
   timestamp: Date;
   citations?: string[];
+  sources?: string[];
 }
 
 const AIChatPage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Hello! I\'m your AI assistant for the Physical AI & Humanoid Robotics textbook. How can I help you today?',
+      text: 'Hello! I\'m your AI assistant for the Physical AI & Humanoid Robotics textbook. Ask me anything about the textbook content.',
       sender: 'ai',
       timestamp: new Date(),
       citations: []
@@ -24,13 +25,18 @@ const AIChatPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [queryMode, setQueryMode] = useState<'full_book' | 'selected_text'>('full_book');
   const [selectedText, setSelectedText] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { siteConfig } = useDocusaurusContext();
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
   const handleSend = async () => {
     if (inputValue.trim() === '' || isLoading) return;
 
-    // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       text: inputValue,
@@ -43,14 +49,12 @@ const AIChatPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Prepare the query payload
       const queryPayload = {
         query: inputValue,
         mode: queryMode,
         context_ids: queryMode === 'selected_text' && selectedText ? [selectedText] : []
       };
 
-      // Call the backend API to get AI response
       const response = await getAIResponse(queryPayload);
 
       const aiMessage: Message = {
@@ -58,7 +62,8 @@ const AIChatPage: React.FC = () => {
         text: response.answer,
         sender: 'ai',
         timestamp: new Date(),
-        citations: response.citations || []
+        citations: response.citations || [],
+        sources: response.sources || []
       };
 
       setMessages(prev => [...prev, aiMessage]);
@@ -75,18 +80,14 @@ const AIChatPage: React.FC = () => {
     }
   };
 
-  // Real API call to backend
   const getAIResponse = async (queryPayload: any): Promise<any> => {
     try {
-      // Get the backend URL from site config custom fields
       const customFields = (siteConfig.customFields as any) || {};
-      const backendUrl = customFields.backendUrl || 'https://farooquemalik50871-AI-Book-Backend.hf.space';
+      const backendUrl = customFields.backendUrl || 'http://localhost:8000';
 
       const response = await fetch(`${backendUrl}/query`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(queryPayload),
       });
 
@@ -101,7 +102,7 @@ const AIChatPage: React.FC = () => {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey && !isLoading) {
       e.preventDefault();
       handleSend();
@@ -111,147 +112,131 @@ const AIChatPage: React.FC = () => {
   const handleTextSelection = () => {
     const selection = window.getSelection();
     if (selection && selection.toString().trim() !== '') {
-      setSelectedText(selection.toString().substring(0, 100) + '...'); // Limit the display
+      setSelectedText(selection.toString().substring(0, 100) + '...');
       setQueryMode('selected_text');
     }
   };
 
-  // Add event listener for text selection
   useEffect(() => {
-    const handleMouseUp = () => {
-      handleTextSelection();
-    };
-
-    document.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
+    document.addEventListener('mouseup', handleTextSelection);
+    return () => document.removeEventListener('mouseup', handleTextSelection);
   }, []);
 
   return (
     <Layout
       title={`AI Assistant - ${siteConfig.title}`}
       description="AI-powered assistant for the Physical AI & Humanoid Robotics textbook">
-      <div className="container margin-vert--lg">
-        <div className="row">
-          <div className="col col--12">
-            <h1>AI Assistant for Physical AI & Humanoid Robotics</h1>
-
-            <div className="margin-bottom--lg">
-              <label htmlFor="query-mode" className="form-label">
-                Query Mode:
-              </label>
-              <div className="button-group button-group--block">
-                <button
-                  className={`button ${queryMode === 'full_book' ? 'button--primary' : 'button--secondary'}`}
-                  onClick={() => setQueryMode('full_book')}>
-                  Full Book Q&A
-                </button>
-                <button
-                  className={`button ${queryMode === 'selected_text' ? 'button--primary' : 'button--secondary'}`}
-                  onClick={() => setQueryMode('selected_text')}>
-                  Selected Text Q&A
-                </button>
+      <div className="chat-page">
+        <div className="chat-container">
+          {/* Header */}
+          <div className="chat-header">
+            <div className="chat-header__info">
+              <div className="chat-header__avatar">AI</div>
+              <div>
+                <div className="chat-header__title">Textbook AI Assistant</div>
+                <div className="chat-header__subtitle">Physical AI & Humanoid Robotics</div>
               </div>
+            </div>
+            <div className="chat-header__mode">
+              <button
+                className={`chat-mode-btn ${queryMode === 'full_book' ? 'chat-mode-btn--active' : ''}`}
+                onClick={() => setQueryMode('full_book')}>
+                Full Book
+              </button>
+              <button
+                className={`chat-mode-btn ${queryMode === 'selected_text' ? 'chat-mode-btn--active' : ''}`}
+                onClick={() => setQueryMode('selected_text')}>
+                Selected Text
+              </button>
+            </div>
+          </div>
 
-              {queryMode === 'selected_text' && selectedText && (
-                <div className="alert alert--info margin-top--md">
-                  <p><strong>Selected Text:</strong> {selectedText}</p>
-                  <p className="margin-bottom--none"><em>AI responses will be limited to information related to this text.</em></p>
+          {/* Selected text banner */}
+          {queryMode === 'selected_text' && selectedText && (
+            <div className="chat-selected-banner">
+              <span className="chat-selected-banner__label">Context:</span>
+              <span className="chat-selected-banner__text">{selectedText}</span>
+              <button
+                className="chat-selected-banner__clear"
+                onClick={() => { setSelectedText(''); setQueryMode('full_book'); }}>
+                Clear
+              </button>
+            </div>
+          )}
+
+          {/* Messages */}
+          <div className="chat-messages">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`chat-msg ${message.sender === 'user' ? 'chat-msg--user' : 'chat-msg--ai'}`}>
+                {message.sender === 'ai' && (
+                  <div className="chat-msg__avatar chat-msg__avatar--ai">AI</div>
+                )}
+                <div className="chat-msg__content">
+                  <div className={`chat-bubble ${message.sender === 'user' ? 'chat-bubble--user' : 'chat-bubble--ai'}`}>
+                    <div className="chat-bubble__text">{message.text}</div>
+                    {message.citations && message.citations.length > 0 && (
+                      <div className="chat-bubble__citations">
+                        <span className="chat-bubble__citations-label">Sources:</span>
+                        {message.citations.map((c, i) => (
+                          <span key={i} className="chat-bubble__citation-tag">{c}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className={`chat-msg__time ${message.sender === 'user' ? 'chat-msg__time--right' : ''}`}>
+                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
+                {message.sender === 'user' && (
+                  <div className="chat-msg__avatar chat-msg__avatar--user">You</div>
+                )}
+              </div>
+            ))}
+
+            {isLoading && (
+              <div className="chat-msg chat-msg--ai">
+                <div className="chat-msg__avatar chat-msg__avatar--ai">AI</div>
+                <div className="chat-msg__content">
+                  <div className="chat-bubble chat-bubble--ai">
+                    <div className="chat-typing">
+                      <span className="chat-typing__dot"></span>
+                      <span className="chat-typing__dot"></span>
+                      <span className="chat-typing__dot"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="chat-input">
+            <textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask a question about the textbook..."
+              rows={1}
+              disabled={isLoading}
+              className="chat-input__field"
+            />
+            <button
+              onClick={handleSend}
+              disabled={inputValue.trim() === '' || isLoading}
+              className="chat-input__send">
+              {isLoading ? (
+                <span className="chat-input__spinner" />
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
               )}
-            </div>
-
-            <div className="card">
-              <div className="card__body">
-                <div className="margin-bottom--lg" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`margin-bottom--sm ${message.sender === 'user' ? 'text--right' : ''}`}
-                    >
-                      <div
-                        className={`padding--sm radius--sm ${
-                          message.sender === 'user'
-                            ? 'background--primary text--light'
-                            : 'background--success text--light'
-                        }`}
-                        style={{
-                          display: 'inline-block',
-                          maxWidth: '80%',
-                          wordWrap: 'break-word'
-                        }}
-                      >
-                        <div className="margin-bottom--xs">
-                          <strong>{message.sender === 'user' ? 'You' : 'AI Assistant'}:</strong>
-                        </div>
-                        <div>{message.text}</div>
-                        {message.citations && message.citations.length > 0 && (
-                          <div className="margin-top--sm">
-                            <small>
-                              <strong>Citations:</strong> {message.citations.join(', ')}
-                            </small>
-                          </div>
-                        )}
-                        <div className="margin-top--xs">
-                          <small className="text--light">
-                            {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </small>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {isLoading && (
-                    <div className="margin-bottom--sm">
-                      <div
-                        className="padding--sm radius--sm background--success text--light"
-                        style={{ display: 'inline-block', maxWidth: '80%' }}
-                      >
-                        <div className="margin-bottom--xs">
-                          <strong>AI Assistant:</strong>
-                        </div>
-                        <div>Thinking...</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="input-group">
-                  <textarea
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Ask a question about the textbook content..."
-                    className="text--normal padding--md form-control"
-                    rows={3}
-                    disabled={isLoading}
-                    style={{ resize: 'vertical' }}
-                  />
-                  <div className="margin-top--sm">
-                    <button
-                      onClick={handleSend}
-                      disabled={inputValue.trim() === '' || isLoading}
-                      className="button button--primary"
-                    >
-                      {isLoading ? 'Sending...' : 'Send'}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="margin-top--md">
-                  <div className="alert alert--info">
-                    <p className="margin-bottom--sm"><strong>How to use:</strong></p>
-                    <ul className="margin-bottom--none">
-                      <li>Use <strong>Full Book Q&A</strong> to ask questions about the entire textbook content</li>
-                      <li>Use <strong>Selected Text Q&A</strong> to ask targeted questions about specific content you've selected</li>
-                      <li>Simply select text anywhere on the textbook pages to enable Selected Text mode</li>
-                      <li>All AI responses are grounded in textbook content with citations provided</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
+            </button>
           </div>
         </div>
       </div>
