@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import re
 
 # Import the ContentChunk model
-from models.content_chunk import ContentChunk
+from ..models.content_chunk import ContentChunk
 
 logger = logging.getLogger(__name__)
 

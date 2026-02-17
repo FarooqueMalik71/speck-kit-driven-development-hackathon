@@ -15,11 +15,6 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 def start_server():
     """Start the FastAPI server with minimal dependencies"""
     try:
-        # Set environment variables to avoid missing dependency issues
-        os.environ.setdefault("OPENAI_API_KEY", "fake-key-for-testing")
-        os.environ.setdefault("QDRANT_API_KEY", "fake-key-for-testing")
-        os.environ.setdefault("NEON_DATABASE_URL", "fake-url-for-testing")
-
         # Import the app after setting up basic logging
         import uvicorn
         from src.main import app

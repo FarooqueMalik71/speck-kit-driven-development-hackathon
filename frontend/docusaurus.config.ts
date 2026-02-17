@@ -53,7 +53,7 @@ const config: Config = {
   ],
 
   customFields: {
-    backendUrl: process.env.REACT_APP_BACKEND_URL || 'https://farooquemalik50871-AI-Book-Backend.hf.space',
+    backendUrl: process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000',
   },
   themeConfig: {
     // Replace with your project's social card

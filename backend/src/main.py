@@ -1,9 +1,12 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Dict, Any, List
-from pydantic import BaseModel
+from typing import Dict, Any, List, Optional
+from pydantic import BaseModel, model_validator
 import os
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Import OpenAI Agents components with granular error handling
 try:
@@ -18,72 +21,79 @@ except ImportError:
 
 # Import individual services with granular error handling
 try:
-    from services.retrieval_service import RetrievalService
+    from .services.retrieval_service import RetrievalService
     RETRIEVAL_SERVICE_AVAILABLE = True
 except ImportError as e:
     print(f"RetrievalService import error: {e}")
     RETRIEVAL_SERVICE_AVAILABLE = False
 
 try:
-    from services.hallucination_prevention import HallucinationPreventionService
+    from .services.hallucination_prevention import HallucinationPreventionService
     HALLUCINATION_SERVICE_AVAILABLE = True
 except ImportError as e:
     print(f"HallucinationPreventionService import error: {e}")
     HALLUCINATION_SERVICE_AVAILABLE = False
 
 try:
-    from services.citation_service import CitationService
+    from .services.citation_service import CitationService
     CITATION_SERVICE_AVAILABLE = True
 except ImportError as e:
     print(f"CitationService import error: {e}")
     CITATION_SERVICE_AVAILABLE = False
 
 try:
-    from services.confidence_fallback import FallbackService
+    from .services.confidence_fallback import FallbackService
     FALLBACK_SERVICE_AVAILABLE = True
 except ImportError as e:
     print(f"FallbackService import error: {e}")
     FALLBACK_SERVICE_AVAILABLE = False
 
 try:
-    from services.content_validation import ContentValidationService
+    from .services.content_validation import ContentValidationService
     CONTENT_VALIDATION_SERVICE_AVAILABLE = True
 except ImportError as e:
     print(f"ContentValidationService import error: {e}")
     CONTENT_VALIDATION_SERVICE_AVAILABLE = False
 
 try:
-    from services.crawler import CrawlerService
+    from .services.crawler import CrawlerService
     CRAWLER_SERVICE_AVAILABLE = True
 except ImportError as e:
     print(f"CrawlerService import error: {e}")
     CRAWLER_SERVICE_AVAILABLE = False
 
 try:
-    from services.content_processor import ContentProcessor
+    from .services.content_processor import ContentProcessor
     CONTENT_PROCESSOR_SERVICE_AVAILABLE = True
 except ImportError as e:
     print(f"ContentProcessor import error: {e}")
     CONTENT_PROCESSOR_SERVICE_AVAILABLE = False
 
 try:
-    from services.embedding_service import EmbeddingService
+    from .services.embedding_service import EmbeddingService
     EMBEDDING_SERVICE_AVAILABLE = True
 except ImportError as e:
     print(f"EmbeddingService import error: {e}")
     EMBEDDING_SERVICE_AVAILABLE = False
 
 try:
-    from services.vector_store import VectorStoreService
+    from .services.vector_store import VectorStoreService
     VECTOR_STORE_SERVICE_AVAILABLE = True
 except ImportError as e:
     print(f"VectorStoreService import error: {e}")
     VECTOR_STORE_SERVICE_AVAILABLE = False
 
+try:
+    from .services.guardrails import check_query_safety, SAFE_FALLBACK
+    GUARDRAILS_AVAILABLE = True
+except ImportError as e:
+    print(f"Guardrails import error: {e}")
+    GUARDRAILS_AVAILABLE = False
+
 # Import other components
 try:
-    from logging_config import logger, setup_logging
-    from config import settings
+    from .logging_config import logger, setup_logging
+    from .config import settings
     CONFIG_AVAILABLE = True
 except ImportError as e:
     print(f"Config/Logging import error: {e}")
@@ -144,18 +154,20 @@ if AGENTS_AVAILABLE:
                 self.client.base_url = base_url
             self.model = model
 
-        def process_query(self, query: str, context_ids: List[str] = None, mode: str = "full_book") -> Dict[str, Any]:
+        def process_query(self, query: str, context_ids: List[str] = None, mode: str = "full_book", prefetched_results=None) -> Dict[str, Any]:
             """Process a query through the agent."""
             try:
-                # Retrieve context using existing RAG system
-                retrieval_service = RetrievalService()
-
-                if mode == "selected_text" and context_ids:
-                    results = retrieval_service.retrieve_for_selected_text_qa(
-                        query, context_ids
-                    )
+                # Use pre-fetched results if available, otherwise retrieve
+                if prefetched_results is not None:
+                    results = prefetched_results
                 else:
-                    results = retrieval_service.retrieve_content(query)
+                    retrieval_service = RetrievalService()
+                    if mode == "selected_text" and context_ids:
+                        results = retrieval_service.retrieve_for_selected_text_qa(
+                            query, context_ids
+                        )
+                    else:
+                        results = retrieval_service.retrieve_content(query)
 
                 # Format context for the agent
                 context_text = ""
@@ -230,9 +242,25 @@ if AGENTS_AVAILABLE:
 
 # Request/response models
 class QueryRequest(BaseModel):
-    query: str
+    # Accept any of: query, question, message
+    query: Optional[str] = None
+    question: Optional[str] = None
+    message: Optional[str] = None
     context_ids: List[str] = []
     mode: str = "full_book"  # "full_book" or "selected_text"
+    use_full_book: Optional[bool] = None  # alias: True → "full_book"
+
+    @model_validator(mode="after")
+    def normalize_fields(self):
+        # Resolve the query text from whichever field was provided
+        resolved = self.query or self.question or self.message
+        if not resolved or not resolved.strip():
+            raise ValueError("One of 'query', 'question', or 'message' must be provided and non-empty")
+        self.query = resolved.strip()
+        # Resolve mode from use_full_book alias
+        if self.use_full_book is not None:
+            self.mode = "full_book" if self.use_full_book else "selected_text"
+        return self
 
 class QueryResponse(BaseModel):
     answer: str
@@ -264,7 +292,22 @@ print("Textbook chatbot API router is temporarily disabled for stability")
 @app.post("/query", response_model=QueryResponse)
 def query_textbook(request: QueryRequest):
     """Query the textbook with AI-powered responses with graceful degradation"""
+    logger.info("POST /query payload: query=%r, mode=%r, context_ids=%s", request.query, request.mode, request.context_ids)
     try:
+        # Guardrail check — reject injection and off-topic queries before RAG pipeline
+        if GUARDRAILS_AVAILABLE:
+            is_safe, reason = check_query_safety(request.query)
+            if not is_safe:
+                return QueryResponse(
+                    answer=SAFE_FALLBACK,
+                    citations=[],
+                    confidence=0.0,
+                    is_confident=False,
+                    sources=[],
+                    boundary_compliance=0.0,
+                    needs_fact_check=False
+                )
+
         # Check if OpenAI Agents should be used based on configuration
         if llm_config.provider in ["openai", "openrouter"] and AGENTS_AVAILABLE:
             # Use OpenAI Agent approach
@@ -295,7 +338,8 @@ def query_textbook(request: QueryRequest):
             result = agent.process_query(
                 request.query,
                 request.context_ids,
-                request.mode
+                request.mode,
+                prefetched_results=results
             )
 
             # Convert result to QueryResponse format
@@ -312,7 +356,7 @@ def query_textbook(request: QueryRequest):
             # Use existing Gemini-based approach for backward compatibility
             # Check if we have the basic services available
             if RETRIEVAL_SERVICE_AVAILABLE and CONFIG_AVAILABLE:
-                from services.llm_service import LLMService
+                from .services.llm_service import LLMService
                 retrieval_service = RetrievalService()
 
                 # Initialize LLM service with Gemini API if available, otherwise use mock
@@ -322,14 +366,13 @@ def query_textbook(request: QueryRequest):
                     # If LLM service fails, use a mock implementation
                     print(f"LLM service initialization failed: {str(e)}, using mock implementation")
                     # Create a mock response
-                    mock_answer = f"Based on the textbook content, here's information about: {request.query}. [Note: LLM service is not available. This is a simulated response.]"
                     return QueryResponse(
-                        answer=mock_answer,
+                        answer="I can only answer questions based on the Physical AI & Humanoid Robotics textbook.",
                         citations=[],
-                        confidence=0.5,
+                        confidence=0.0,
                         is_confident=False,
                         sources=[],
-                        boundary_compliance=0.5,
+                        boundary_compliance=0.0,
                         needs_fact_check=True
                     )
 
@@ -354,7 +397,7 @@ def query_textbook(request: QueryRequest):
                     answer = llm_response["answer"]
                 except Exception as e:
                     print(f"LLM response generation failed: {str(e)}, using fallback")
-                    answer = f"Based on the textbook content, here's information about: {request.query}. [Note: Response generated with limited capabilities.]"
+                    answer = "I can only answer questions based on the Physical AI & Humanoid Robotics textbook."
 
                 # Generate citations if service is available
                 citations = []
@@ -425,7 +468,7 @@ def query_textbook(request: QueryRequest):
             else:
                 # If core services are not available, return a basic mock response
                 return QueryResponse(
-                    answer=f"Based on the textbook content, here's information about: {request.query}. [Note: Core services are not available. This is a simulated response.]",
+                    answer="I can only answer questions based on the Physical AI & Humanoid Robotics textbook.",
                     citations=[],
                     confidence=0.0,
                     is_confident=False,
@@ -437,7 +480,7 @@ def query_textbook(request: QueryRequest):
         print(f"Error processing query: {str(e)}")
         # Return a graceful fallback response instead of raising an exception
         return QueryResponse(
-            answer=f"Sorry, I'm having trouble processing your query about '{request.query}'. Please try again later.",
+            answer="I can only answer questions based on the Physical AI & Humanoid Robotics textbook.",
             citations=[],
             confidence=0.0,
             is_confident=False,

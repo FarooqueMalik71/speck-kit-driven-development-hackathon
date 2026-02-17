@@ -10,7 +10,8 @@
       "Bash(findstr LISTENING)",
       "Bash(curl -X POST http://localhost:8000/query -H \"Content-Type: application/json\" -d \"{\"\"query\"\":\"\"What is this textbook about?\"\",\"\"mode\"\":\"\"full_book\"\"}\")",
       "Bash(curl -X GET http://localhost:8000/health)",
-      "Bash(curl -X GET https://farooquemalik50871-ai-book-backend.hf.space/health)"
+      "Bash(curl -X GET https://farooquemalik50871-ai-book-backend.hf.space/health)",
+      "Bash(python test_clean_backend.py)"
     ]
   }
 }

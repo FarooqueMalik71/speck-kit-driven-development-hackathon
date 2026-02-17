@@ -1,7 +1,7 @@
 from typing import List, Optional
 import logging
-from models.content_chunk import ContentChunk
-from models.embedding_vector import EmbeddingVector
+from ..models.content_chunk import ContentChunk
+from ..models.embedding_vector import EmbeddingVector
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +19,10 @@ class EmbeddingService:
     """
 
     def __init__(self, api_key: Optional[str] = None, model: str = "embed-multilingual-v3.0"):
+        import os
         self.model = model
         self.client = None
+        api_key = api_key or os.getenv("COHERE_API_KEY")
 
         if COHERE_AVAILABLE and api_key:
             try:
@@ -48,10 +50,7 @@ class EmbeddingService:
                 logger.error(f"Error generating embedding: {str(e)}")
                 raise
         else:
-            # Mock implementation for testing
-            logger.debug(f"Using mock embedding for text: {text[:50]}...")
-            # Return a mock embedding vector (10 dimensions)
-            return [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0][:10]
+            raise RuntimeError("Cohere client not initialized. Set COHERE_API_KEY environment variable.")
 
     def generate_embeddings_batch(self, texts: List[str], batch_size: int = 96) -> List[List[float]]:
         """
@@ -71,8 +70,7 @@ class EmbeddingService:
                     )
                     batch_embeddings = response.embeddings
                 else:
-                    # Mock implementation
-                    batch_embeddings = [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0][:10] for _ in batch]
+                    raise RuntimeError("Cohere client not initialized. Set COHERE_API_KEY environment variable.")
 
                 all_embeddings.extend(batch_embeddings)
                 logger.debug(f"Generated embeddings for batch {i//batch_size + 1}: {len(batch)} items")

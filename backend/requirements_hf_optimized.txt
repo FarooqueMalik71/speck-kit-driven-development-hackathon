@@ -13,7 +13,7 @@ qdrant-client==1.8.0
 
 # AI/ML dependencies (minimal)
 openai==1.3.5
-google-generativeai==0.4.1
+cohere>=5.0.0
 
 # Additional dependencies for services
 requests==2.31.0

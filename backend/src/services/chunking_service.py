@@ -2,7 +2,34 @@ from typing import List, Dict, Any, Optional, Tuple
 import logging
 import re
 from dataclasses import dataclass
-from langchain.text_splitter import RecursiveCharacterTextSplitter, MarkdownTextSplitter
+try:
+    from langchain.text_splitter import RecursiveCharacterTextSplitter, MarkdownTextSplitter
+except ImportError:
+    import logging as _logging
+    _logging.getLogger(__name__).warning("LangChain not available. Using built-in text splitters.")
+
+    class RecursiveCharacterTextSplitter:
+        def __init__(self, chunk_size=1000, chunk_overlap=200, **kwargs):
+            self.chunk_size = chunk_size
+            self.chunk_overlap = chunk_overlap
+
+        def split_text(self, text):
+            chunks = []
+            start = 0
+            while start < len(text):
+                end = min(start + self.chunk_size, len(text))
+                chunks.append(text[start:end])
+                start = end - self.chunk_overlap
+                if start >= len(text):
+                    break
+            return chunks
+
+    class MarkdownTextSplitter(RecursiveCharacterTextSplitter):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
+        def split_text(self, text):
+            return super().split_text(text)
 from .content_processor import ContentChunk
 
 logger = logging.getLogger(__name__)

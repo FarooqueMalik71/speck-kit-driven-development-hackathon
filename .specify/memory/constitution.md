@@ -1,11 +1,19 @@
 <!--
 SYNC IMPACT REPORT:
-Version change: N/A → 1.0.0
-Modified principles: N/A (new constitution)
-Added sections: All sections (new document)
-Removed sections: N/A
-Templates requiring updates: ⚠ pending - .specify/templates/plan-template.md, .specify/templates/spec-template.md, .specify/templates/tasks-template.md
-Follow-up TODOs: None
+Version change: 1.0.0 → 1.1.0
+Modified principles: None (all v1.0.0 principles preserved unchanged)
+Added sections:
+  - "Amendment A: Debugging & Hardening Phase" (new section with 11 rules)
+  - Restrictive Rules (6 rules)
+  - Safety & Security Rules (3 rules)
+  - Verification Requirements (2 rules)
+Removed sections: None
+Templates requiring updates:
+  - .specify/templates/plan-template.md: ✅ no update needed (Constitution Check section references constitution generically)
+  - .specify/templates/spec-template.md: ✅ no update needed (no constitution-specific references)
+  - .specify/templates/tasks-template.md: ✅ no update needed (phases remain compatible)
+Follow-up TODOs:
+  - Amendment A auto-expires after debugging/hardening phase completion; remove manually when phase ends
 -->
 # Physical AI & Humanoid Robotics — An AI-Native Textbook for Embodied Intelligence Constitution
 
@@ -60,8 +68,67 @@ Success is measured by learner ability to implement working robotics systems aft
 
 The textbook is complete when all core robotics concepts are covered with simulation examples, AI assistance is fully integrated and responsive, multi-language support is functional, and all code examples are tested and verified. The system must be deployed and accessible through standard web browsers with offline capabilities for core content.
 
+---
+
+## Amendment A: Debugging & Hardening Phase
+
+**Status**: ACTIVE | **Adopted**: 2026-02-15 | **Scope**: Current fixing phase only
+
+This amendment applies ONLY to the current debugging and hardening phase. It does NOT replace or contradict any principle in Version 1.0.0. All educational philosophy, architecture, and goals remain unchanged. This amendment automatically expires after the fixing phase is complete.
+
+### Purpose of Amendment
+
+To safely fix, stabilize, and harden the existing system without introducing regressions or architectural drift.
+
+### A-I. Restrictive Rules (NON-NEGOTIABLE)
+
+1. **No Structural Changes**: Do NOT delete, rename, or restructure any existing frontend or backend folders.
+2. **No Route Modifications**: Do NOT modify existing API routes or frontend components unless explicitly required to fix a bug.
+3. **Minimal Isolated Fixes**: All fixes MUST be minimal, isolated, and backward-compatible.
+4. **Signature Preservation**: Existing function signatures and return formats MUST remain unchanged.
+5. **Additive Preference**: Prefer adding new files (scripts, helpers) over modifying working files.
+6. **No Mock Logic in Production**: No mock, fake, or placeholder AI logic is allowed in production paths.
+
+### A-II. Safety & Security Rules
+
+7. **No Hardcoded Secrets**: Never hardcode API keys, tokens, or secrets in source code.
+8. **Environment-Only Secrets**: All secrets MUST be loaded from environment variables.
+9. **Input Guardrails**: Add guardrails to prevent:
+   - Prompt injection attacks
+   - System override attempts
+   - Non-textbook or malicious queries
+
+### A-III. Verification Requirements
+
+10. **Post-Fix Verification**: After fixes, the system MUST be verified by:
+    - Successful backend startup (no runtime/import errors)
+    - Successful frontend build (`npm run build`)
+    - Chatbot responding strictly from textbook content
+11. **Manual Step Documentation**: If verification cannot be executed automatically, explicitly document the exact manual steps required.
+
+### Amendment Expiry
+
+This amendment automatically expires after the fixing phase is complete. Upon expiry, remove this section and bump the version to the next appropriate release.
+
+---
+
 ## Governance
 
 This constitution supersedes all other development practices for the textbook project. All feature additions and modifications must align with these principles. Amendments require documentation of impact on educational objectives and approval by the academic oversight committee. All pull requests must demonstrate compliance with these principles through automated checks and human review.
 
-**Version**: 1.0.0 | **Ratified**: 2025-12-15 | **Last Amended**: 2025-12-15
+### Amendment Procedure
+
+1. Amendments MUST state their scope (permanent or phase-limited).
+2. Phase-limited amendments MUST include an expiry condition.
+3. Amendments MUST NOT contradict existing core principles; they MAY add constraints.
+4. Version increments follow semantic versioning:
+   - MAJOR: Backward-incompatible principle removals or redefinitions.
+   - MINOR: New principle/section added or materially expanded guidance.
+   - PATCH: Clarifications, wording, typo fixes, non-semantic refinements.
+5. All amendments MUST be documented with a Sync Impact Report.
+
+### Compliance Review
+
+All code changes during an active amendment period MUST be checked against both the core principles and any active amendments. Violations of amendment rules are treated with the same severity as core principle violations.
+
+**Version**: 1.1.0 | **Ratified**: 2025-12-15 | **Last Amended**: 2026-02-15

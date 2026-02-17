@@ -62,22 +62,14 @@ def validate_settings():
     """
     errors = []
 
-    # For testing purposes, we might not have real API keys
-    # Commenting out the required checks to allow testing
-    # if not settings.cohere_api_key:
-    #     errors.append("COHERE_API_KEY is required")
+    if not settings.cohere_api_key:
+        errors.append("WARNING: COHERE_API_KEY not set — embedding service will fail")
 
-    # if not settings.gemini_api_key:
-    #     errors.append("GEMINI_API_KEY is required")
+    if not settings.qdrant_api_key:
+        errors.append("WARNING: QDRANT_API_KEY not set — vector search will fail")
 
-    # if not settings.qdrant_api_key:
-    #     errors.append("QDRANT_API_KEY is required")
-
-    # if not settings.book_url:
-    #     errors.append("BOOK_URL is required")
-
-    # if not settings.qdrant_host:
-    #     errors.append("QDRANT_HOST is required")
+    if not settings.qdrant_host or settings.qdrant_host == "localhost":
+        errors.append("WARNING: QDRANT_HOST not set or is localhost — vector search may fail in production")
 
     if settings.chunk_size <= 0:
         errors.append("CHUNK_SIZE must be positive")

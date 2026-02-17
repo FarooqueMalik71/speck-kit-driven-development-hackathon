@@ -1,10 +1,11 @@
 from typing import List, Dict, Any, Optional
 import logging
+import uuid
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.models import PointStruct
-from config import settings
-from models.embedding_vector import EmbeddingVector
+from ..config import settings
+from ..models.embedding_vector import EmbeddingVector
 
 logger = logging.getLogger(__name__)
 
@@ -35,17 +36,16 @@ class VectorStoreService:
                         prefer_grpc=False,  # Use HTTP for local connections
                     )
                 else:
-                    # For cloud Qdrant, use URL (without protocol) and API key with HTTPS
-                    # Remove protocol prefix if present for proper URL handling
-                    clean_host = host.replace("https://", "").replace("http://", "")
+                    # For cloud Qdrant, ensure URL has https:// prefix
+                    if not host.startswith("http://") and not host.startswith("https://"):
+                        cloud_url = f"https://{host}"
+                    else:
+                        cloud_url = host
                     self.client = QdrantClient(
-                        url=clean_host,
-                        port=port,
+                        url=cloud_url,
                         api_key=api_key,
-                        https=True,  # Enable HTTPS for cloud connections
-                        prefer_grpc=True,
-                        # Disable compatibility check to avoid the warning
-                        check_compatibility=False
+                        prefer_grpc=False,
+                        timeout=30,
                     )
 
                 # Test the connection by trying to get collections
@@ -127,9 +127,10 @@ class VectorStoreService:
                     if key not in payload:
                         payload[key] = value
 
-                # Create point structure
+                # Create point structure (Qdrant requires int or UUID ids)
+                point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, emb_vector.id))
                 point = PointStruct(
-                    id=emb_vector.id,
+                    id=point_id,
                     vector=emb_vector.vector,
                     payload=payload
                 )
@@ -255,8 +256,7 @@ class VectorStoreService:
     def search(self, query_embedding: List[float], limit: int = 10, filters: Optional[Dict] = None) -> List[Dict[str, Any]]:
         """Search for similar content using vector similarity"""
         if self.use_mock:
-            # Mock implementation for testing - return empty results
-            logger.info(f"[MOCK] Would search for similar content, returning empty results for testing")
+            logger.warning("VectorStoreService is in mock mode. No real search performed.")
             return []
 
         try:
@@ -288,10 +288,10 @@ class VectorStoreService:
                 if filter_conditions:
                     qdrant_filters = models.Filter(must=filter_conditions)
 
-            # Perform search - use query_points for this Qdrant version
-            search_results = self.client.query_points(
+            # Perform search using qdrant_client 1.8.x API
+            search_results = self.client.search(
                 collection_name=self.collection_name,
-                query=query_embedding,
+                query_vector=query_embedding,
                 limit=limit,
                 with_payload=True,
                 with_vectors=False,
@@ -299,9 +299,7 @@ class VectorStoreService:
             )
 
             results = []
-            # Handle different response formats depending on Qdrant version
-            # For query_points, the results are in search_results.points
-            search_points = search_results.points if hasattr(search_results, 'points') else search_results
+            search_points = search_results
 
             for hit in search_points:
                 # Handle different object structures
@@ -309,10 +307,12 @@ class VectorStoreService:
                 payload = getattr(hit, 'payload', {})
                 score = getattr(hit, 'score', 0.0)
 
+                source_url_val = payload.get("source_url", "") if isinstance(payload, dict) else getattr(hit, 'payload', {}).get("source_url", "")
                 result = {
                     "id": point_id,
                     "content": payload.get("content", "") if isinstance(payload, dict) else getattr(hit, 'payload', {}).get("content", ""),
-                    "source_url": payload.get("source_url", "") if isinstance(payload, dict) else getattr(hit, 'payload', {}).get("source_url", ""),
+                    "source_url": source_url_val,
+                    "source_file": source_url_val,
                     "section_title": payload.get("section_title", "") if isinstance(payload, dict) else getattr(hit, 'payload', {}).get("section_title", ""),
                     "chunk_index": payload.get("chunk_index", 0) if isinstance(payload, dict) else getattr(hit, 'payload', {}).get("chunk_index", 0),
                     "created_at": payload.get("created_at", "") if isinstance(payload, dict) else getattr(hit, 'payload', {}).get("created_at", ""),
@@ -364,9 +364,9 @@ class VectorStoreService:
                 ]
             )
 
-            search_results = self.client.query_points(
+            search_results = self.client.search(
                 collection_name=self.collection_name,
-                query=query_embedding,
+                query_vector=query_embedding,
                 limit=limit,
                 with_payload=True,
                 with_vectors=False,
@@ -374,9 +374,7 @@ class VectorStoreService:
             )
 
             results = []
-            # Handle different response formats depending on Qdrant version
-            # For query_points, the results are in search_results.points
-            search_points = search_results.points if hasattr(search_results, 'points') else search_results
+            search_points = search_results
 
             for hit in search_points:
                 # Handle different object structures
@@ -384,10 +382,12 @@ class VectorStoreService:
                 payload = getattr(hit, 'payload', {})
                 score = getattr(hit, 'score', 0.0)
 
+                source_url_val2 = payload.get("source_url", "") if isinstance(payload, dict) else getattr(hit, 'payload', {}).get("source_url", "")
                 result = {
                     "id": point_id,
                     "content": payload.get("content", "") if isinstance(payload, dict) else getattr(hit, 'payload', {}).get("content", ""),
-                    "source_url": payload.get("source_url", "") if isinstance(payload, dict) else getattr(hit, 'payload', {}).get("source_url", ""),
+                    "source_url": source_url_val2,
+                    "source_file": source_url_val2,
                     "section_title": payload.get("section_title", "") if isinstance(payload, dict) else getattr(hit, 'payload', {}).get("section_title", ""),
                     "chunk_index": payload.get("chunk_index", 0) if isinstance(payload, dict) else getattr(hit, 'payload', {}).get("chunk_index", 0),
                     "created_at": payload.get("created_at", "") if isinstance(payload, dict) else getattr(hit, 'payload', {}).get("created_at", ""),
@@ -542,7 +542,7 @@ class VectorStoreService:
 
 # Example usage
 if __name__ == "__main__":
-    from models.content_chunk import ContentChunk
+    from ..models.content_chunk import ContentChunk
     from .embedding_service import EmbeddingService
     import hashlib
     from datetime import datetime
